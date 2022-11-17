@@ -3,18 +3,32 @@ class CausesController < ApplicationController
     before_action :set_cause, only: %i[show update]
 
     def index
-        causes = Cause.all
-        render json: causes.to_json(include: [:organization]), status: 200
+        causes = Cause.includes(:organization).where(featured: true)
+        render json: causes, status: 200
+    end
+
+    def statistics
+        total_causes = Cause.all.count.to_json
+        causes_that_exceed_donation = Donation.joins(:cause).where('quantity>expected_amount').count.to_json
+        total_amount_causes = Cause.joins(:donations).sum(:quantity).to_json
+
+        render json: {total_causes: total_causes, causes_that_exceed_donation: causes_that_exceed_donation, total_amount_causes: total_amount_causes}, status: 200
+
     end
 
     def show
-        ## TODO: Return a complete cause including organization, reports and donations
-        render json: {}, status: 200
+        render json: @cause.to_json(include: [:organization, :reports, :donations]), status: 200
     end
 
+
     def update
-        ## TODO: Update a cause attributes
-        render json: {}, status: 201
+
+        if @cause.update(cause_params)
+            render json: @cause, status: 201 
+        else 
+            render json: @cause.errors, status: :unprocessable_entity 
+        end
+
     end
 
     private
@@ -25,6 +39,7 @@ class CausesController < ApplicationController
 
     # Only allow a list of trusted parameters through.
     def cause_params
-        params.fetch(:cause, {}).permit(:title, :description, :expected_amount )
+        params.require(:cause).permit(:title, :description, :expected_amount )
     end
 end
+
